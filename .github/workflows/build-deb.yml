@@ -37,6 +37,6 @@ jobs:
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_KNOWNHOSTS_UPLOAD: ${{ secrets.SSH_KNOWNHOSTS_UPLOAD }}
           distro: bullseye
-          path: debs
+          path: .
           files: ${{ steps.getfile.outputs.filename }}
           branch: test
