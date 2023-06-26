@@ -39,4 +39,14 @@ jobs:
           distro: bullseye
           path: .
           files: ${{ steps.getfile.outputs.filename }}
-          branch: test
+          branch: stable
+
+      - name: Deploy to server
+        uses: jethome-iot/actions/repo-upload@master
+        with:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWNHOSTS_UPLOAD: ${{ secrets.SSH_KNOWNHOSTS_UPLOAD }}
+          distro: bullseye
+          path: .
+          files: ${{ steps.getfile.outputs.filename }}
+          branch: nightly
