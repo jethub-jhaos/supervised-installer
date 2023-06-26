@@ -18,14 +18,14 @@ CURRENT_OS=$(lsb_release -d | awk -F"\t" '{print $2}')
 os_supported=false
 
 for os in "${supported_os[@]}"; do
-    if [[ "$os" =~ "$CURRENT_OS" ]]; then
+    if [[ "${CURRENT_OS}" =~ "${os}" ]]; then
         os_supported=true
         break
     fi
 done
 
-if [[ $os_supported == false ]]; then
-    if [[ $BYPASS_OS_CHECK != "true" ]]; then
+if [[ "$os_supported" == "false" ]]; then
+    if [[ "${BYPASS_OS_CHECK}" != "true" ]]; then
         error "${CURRENT_OS} is not supported!"
     fi
     warn "Bypassing OS check..."
