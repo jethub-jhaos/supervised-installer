@@ -15,20 +15,20 @@ APT_LISTCHANGES_FRONTEND=none
 
 export LANG LC_ALL LANGUAGE DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND
 
-finish=1693429200
+#finish=1693429200
 
-now=$(date +%s)
-if [ $now -lt $finish ]
-then
+#now=$(date +%s)
+#if [ $now -lt $finish ]
+#then
+#    SUPPORTED_OS=(
+#        "bullseye"
+#        "bookworm"
+#        )
+#else
     SUPPORTED_OS=(
-        "bullseye"
         "bookworm"
         )
-else
-    SUPPORTED_OS=(
-        "bookworm"
-        )
-fi
+#fi
 
 HOME_ASSISTANT_MACHINE="qemuarm-64"
 
@@ -137,9 +137,9 @@ fi
 #
 # Installing dependencies
 #
-#print_info "Installing dependencies..."
+print_info "Installing dependencies..."
 
-#apt install -y jq wget curl udisks2 libglib2.0-bin network-manager dbus apparmor systemd-journal-remote
+apt install -y jq wget curl udisks2 libglib2.0-bin network-manager dbus apparmor systemd-journal-remote
 
 #print_info "Installing dependencies done"
 
