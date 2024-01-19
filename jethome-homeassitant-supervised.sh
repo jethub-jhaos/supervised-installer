@@ -222,7 +222,7 @@ sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="Debian GNU\/Linux 12 (bookworm)"/' /etc/o
 #
 print_info "Installing Home Assistant Supervised (machine: ${MACHINE})..."
 
-apt-get install -y homeassistant-supervised
+MACHINE="qemuarm-64" apt-get install -y homeassistant-supervised
 
 print_info "Home Assistant will be installed in tens of minutes"
 print_info "Please wait for supervisor up (timeout 1200 sec)..."
