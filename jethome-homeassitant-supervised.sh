@@ -13,7 +13,7 @@ LANGUAGE=C
 DEBIAN_FRONTEND=noninteractive
 APT_LISTCHANGES_FRONTEND=none
 TIMEOUT=1200
-REINSTALL=0
+REINSTALL="${REINSTALL:=0}"
 
 HOME_ASSISTANT_MACHINE="qemuarm-64"
 
@@ -91,11 +91,13 @@ if [[ -f /usr/sbin/hassio-supervisor ]]; then
     print_request "Home Assistant already installed. Reinstall Y/N? "
 
     # Read the answer from the keyboard
-    read -r answer
+    if [[ "$REINSTALL" == "0" ]] ; then
+      read -r answer </dev/tty
+    fi
 
     # Check if the answer is one of the specified options
-    if [[ "$answer" != "Y" && "$answer" != "y" && "$answer" != "Д" && "$answer" != "д" ]]; then
-        print_error "Operation cancelled."
+    if [[ "$answer" != "Y" && "$answer" != "y" && "$answer" != "Д" && "$answer" != "д" && "$REINSTALL" == "0" ]]; then
+        print_error "Operation cancelled. Use \`export REINSTALL=1;\` to force reinstall"
         exit 1
     fi
 
@@ -107,7 +109,7 @@ if [[ -f /usr/sbin/hassio-supervisor ]]; then
     dpkg -r homeassistant-supervised > /dev/null 2>&1
     dpkg -r os-agent > /dev/null 2>&1
     docker ps | tail +2 | cut -d " " -f 1 | xargs -n 1 docker stop 
-    docker ps | tail +2 | cut -d " " -f 1 | xargs -n 1 docker stop 
+    docker ps | tail +2 | cut -d " " -f 1 | xargs -n 1 docker stop  || true
     sleep 5
     docker system prune -a -f --volumes > /dev/null 2>&1
     docker system prune -a -f --volumes > /dev/null 2>&1
@@ -128,32 +130,7 @@ if [[ ! -f /root/.ha_prepared ]]; then
         print_info "Docker already installed"
     else
         print_info "Installing docker..."
-        #curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
-        apt-get update
-        apt-get install ca-certificates curl gnupg
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-
-        # Add the repository to Apt sources:
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-          tee /etc/apt/sources.list.d/docker.list > /dev/null
-        apt-get update
-
-#Workaround for bug in docker 5.25 version
-#ii  docker-buildx-plugin               0.11.2-1~debian.12~bookworm                     arm64        Docker Buildx cli plugin.
-#ii  docker-ce                          5:24.0.7-1~debian.12~bookworm                   arm64        Docker: the open-source application container engine
-#ii  docker-ce-cli                      5:24.0.7-1~debian.12~bookworm                   arm64        Docker CLI: the open-source application container engine
-#ii  docker-compose-plugin              2.21.0-1~debian.12~bookworm                     arm64        Docker Compose (V2) plugin for the Docker CLI.
-
-        apt-get install -y --allow-downgrades \
-        docker-compose-plugin=2.21.0-1~debian.12~bookworm \
-        docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
-        docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
-        docker-ce=5:24.0.7-1~debian.12~bookworm \
-        docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
+        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
 
         if [[ -n "${SUDO_USER}" ]] ; then 
         usermod -aG docker "$SUDO_USER"
@@ -181,6 +158,23 @@ if [[ ! -f /root/.ha_prepared ]]; then
     apt-get install -y jq wget curl udisks2 libglib2.0-bin network-manager dbus apparmor systemd-resolved systemd-journal-remote nfs-common cifs-utils
 
     print_info "Installing dependencies done"
+
+    print_info "Force downgrade docker..."
+
+    #Workaround for bug in docker 5.25 version
+    #ii  docker-buildx-plugin               0.11.2-1~debian.12~bookworm                     arm64        Docker Buildx cli plugin.
+    #ii  docker-ce                          5:24.0.7-1~debian.12~bookworm                   arm64        Docker: the open-source application container engine
+    #ii  docker-ce-cli                      5:24.0.7-1~debian.12~bookworm                   arm64        Docker CLI: the open-source application container engine
+    #ii  docker-compose-plugin              2.21.0-1~debian.12~bookworm                     arm64        Docker Compose (V2) plugin for the Docker CLI.
+
+    apt-get install -y --allow-downgrades \
+       docker-compose-plugin=2.21.0-1~debian.12~bookworm \
+       docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
+       docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
+       docker-ce=5:24.0.7-1~debian.12~bookworm \
+       docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
+
+    print_info "Force downgrade docker done"
 
     #
     # Check 'extraargs=systemd.unified_cgroup_hierarchy=false' exists in /boot/armbianEnv.txt, add if not exists
