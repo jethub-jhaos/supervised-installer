@@ -100,7 +100,7 @@ if [[ -f /usr/sbin/hassio-supervisor ]]; then
     fi
 
     print_info "Remove old Home Assistant..."
-    
+
     systemctl stop haos-agent > /dev/null 2>&1
     systemctl stop hassio-apparmor > /dev/null 2>&1
     systemctl stop hassio-supervisor > /dev/null 2>&1
@@ -112,7 +112,7 @@ if [[ -f /usr/sbin/hassio-supervisor ]]; then
     docker system prune -a -f --volumes > /dev/null 2>&1
     docker system prune -a -f --volumes > /dev/null 2>&1
     #touch /root/.ha_prepared
-    
+
     print_info "Remove old Home Assistant done"
     REINSTALL=1
 
@@ -128,7 +128,33 @@ if [[ ! -f /root/.ha_prepared ]]; then
         print_info "Docker already installed"
     else
         print_info "Installing docker..."
-        curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
+        #curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
+        apt-get update
+        apt-get install ca-certificates curl gnupg
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+
+        # Add the repository to Apt sources:
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+          tee /etc/apt/sources.list.d/docker.list > /dev/null
+        apt-get update
+
+#Workaround for bug in docker 5.25 version
+#ii  docker-buildx-plugin               0.11.2-1~debian.12~bookworm                     arm64        Docker Buildx cli plugin.
+#ii  docker-ce                          5:24.0.7-1~debian.12~bookworm                   arm64        Docker: the open-source application container engine
+#ii  docker-ce-cli                      5:24.0.7-1~debian.12~bookworm                   arm64        Docker CLI: the open-source application container engine
+#ii  docker-compose-plugin              2.21.0-1~debian.12~bookworm                     arm64        Docker Compose (V2) plugin for the Docker CLI.
+
+        apt-get install -y --allow-downgrades \
+        docker-compose-plugin=2.21.0-1~debian.12~bookworm \
+        docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
+        docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
+        docker-ce=5:24.0.7-1~debian.12~bookworm \
+        docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
+
         if [[ -n "${SUDO_USER}" ]] ; then 
         usermod -aG docker "$SUDO_USER"
         fi
