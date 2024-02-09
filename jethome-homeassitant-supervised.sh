@@ -159,7 +159,7 @@ if [[ ! -f /root/.ha_prepared ]]; then
 
     print_info "Installing dependencies done"
 
-    print_info "Force downgrade docker..."
+    #print_info "Force downgrade docker..."
 
     #Workaround for bug in docker 5.25 version
     #ii  docker-buildx-plugin               0.11.2-1~debian.12~bookworm                     arm64        Docker Buildx cli plugin.
@@ -167,14 +167,14 @@ if [[ ! -f /root/.ha_prepared ]]; then
     #ii  docker-ce-cli                      5:24.0.7-1~debian.12~bookworm                   arm64        Docker CLI: the open-source application container engine
     #ii  docker-compose-plugin              2.21.0-1~debian.12~bookworm                     arm64        Docker Compose (V2) plugin for the Docker CLI.
 
-    apt-get install -y --allow-downgrades \
-       docker-compose-plugin=2.21.0-1~debian.12~bookworm \
-       docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
-       docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
-       docker-ce=5:24.0.7-1~debian.12~bookworm \
-       docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
+    #apt-get install -y --allow-downgrades \
+    #   docker-compose-plugin=2.21.0-1~debian.12~bookworm \
+    #   docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
+    #   docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
+    #   docker-ce=5:24.0.7-1~debian.12~bookworm \
+    #   docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
 
-    print_info "Force downgrade docker done"
+    #print_info "Force downgrade docker done"
 
     #
     # Check 'extraargs=systemd.unified_cgroup_hierarchy=false' exists in /boot/armbianEnv.txt, add if not exists
