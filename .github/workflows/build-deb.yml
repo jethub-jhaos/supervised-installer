@@ -9,29 +9,57 @@ on:
 jobs:
   build-deb-package:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [ "ha", "jethome" ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
+      - name: Fix scripts
+        if: matrix.package == 'jethome'
+        run: |
+          jh_durl="ghcr.io/jethub-homeassistant"
+          sed -i "s|DOCKER_REPO=\"[^\"]*\"|DOCKER_REPO=\"${jh_durl}\"|g" homeassistant-supervised/DEBIAN/postinst
+          jh_url="https://haversion.jethome.ru/stable.json"
+          sed -i "s|URL_VERSION=\"[^\"]*\"|URL_VERSION=\"${jh_url}\"|g" homeassistant-supervised/DEBIAN/postinst
+          sed -i 's|https://version.home-assistant.io/stable.json|'"${jh_url}"'|g' homeassistant-supervised/usr/sbin/hassio-supervisor
+
+          jh_apparmor="https://haversion.jethome.ru/apparmor_stable.txt"
+          sed -i "s|URL_APPARMOR_PROFILE=\"[^\"]*\"|URL_APPARMOR_PROFILE=\"${jh_apparmor}\"|g" homeassistant-supervised/DEBIAN/postinst
+          package_name=homeassistant-supervised
+          sed -i 's|Package: homeassistant-supervised|Package: homeassistant-supervised-jethome|g' homeassistant-supervised/DEBIAN/control
+          sed -i 's|Description: Home Assistant Supervised|Description: Home Assistant Supervised JetHome|g' homeassistant-supervised/DEBIAN/control
+          for script_file in homeassistant-supervised/DEBIAN/p*; do
+            sed -i 's|--package homeassistant-supervised|--package homeassistant-supervised-jethome|g' "$script_file"
+          done
       - name: Build Debian Package in Docker
         run: |
           docker run --rm -v $(pwd):/tmp debian:bookworm-slim bash -c \
           "cd /tmp \
           && chmod 555 homeassistant-supervised/DEBIAN/p* \
           && dpkg-deb --build --root-owner-group homeassistant-supervised"
+          if [[ "${{ matrix.package }}" == "jethome" ]]; then
+            ls -la
+            mv homeassistant-supervised.deb homeassistant-supervised-jethome.deb || true
+          fi
+
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: homeassistant-supervised.deb
+          files: homeassistant-supervised*.deb
 
       - name: Rename for deploy
         id: getfile
         run: |
           FILENAME="$(awk '/^Package:/ { print $2 }' homeassistant-supervised/DEBIAN/control)_$(awk '/^Version:/ { print $2 }' homeassistant-supervised/DEBIAN/control)_$(dpkg-architecture -qDEB_BUILD_ARCH).deb"
-          mv homeassistant-supervised.deb ${FILENAME}
+          ls -la
+          mv $(awk '/^Package:/ { print $2 }' homeassistant-supervised/DEBIAN/control).deb ${FILENAME}
+          echo "filename=${FILENAME}"
           echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
 
       - name: Deploy to server
+        if: startsWith(github.ref, 'refs/tags/')
         uses: jethome-iot/actions/repo-upload@master
         with:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -42,6 +70,7 @@ jobs:
           branch: stable
 
       - name: Deploy to server
+        if: startsWith(github.ref, 'refs/tags/')
         uses: jethome-iot/actions/repo-upload@master
         with:
           SSH_KEY: ${{ secrets.SSH_KEY }}
