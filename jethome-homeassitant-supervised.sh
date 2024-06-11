@@ -5,7 +5,7 @@ set -e
 ############################################################################################################
 # Variables
 
-SCRIPT="jethub-homeassistant-installer"
+SCRIPT="jethome-homeassistant-installer"
 
 LANG=C
 LC_ALL=en_US.UTF-8
@@ -14,14 +14,19 @@ DEBIAN_FRONTEND=noninteractive
 APT_LISTCHANGES_FRONTEND=none
 TIMEOUT=1200
 REINSTALL="${REINSTALL:=0}"
+if [ "${JETHOME}" == "yes" ]; then
+  pkg_suffix="-jethome"
+else
+  pkg_suffix=""
+fi
 
-HOME_ASSISTANT_MACHINE="qemuarm-64"
+MACHINE="qemuarm-64"
 
-export LANG LC_ALL LANGUAGE DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND HOME_ASSISTANT_MACHINE
+export LANG LC_ALL LANGUAGE DEBIAN_FRONTEND APT_LISTCHANGES_FRONTEND MACHINE
 
 SUPPORTED_OS=(
-        "bookworm"
-        )
+              "bookworm"
+              )
 
 ############################################################################################################
 # Functions
@@ -45,7 +50,7 @@ echo "####################################################################"
 echo " JetHome JetHub Home Assistant Installer"
 echo ""
 echo " Official site: https://jethome.ru"
-echo " Documentation: https://jethome.ru/wiki"
+echo " Documentation: https://docs.jethome.ru"
 echo " Telegram community: https://t.me/jethomeru"
 echo "####################################################################"
 
@@ -64,6 +69,7 @@ CURRENT_OS=$(lsb_release -d | sed -E 's/Description:\s+//')
 SUPPORTED=0
 for distro in "${SUPPORTED_OS[@]}"
 do
+  # shellcheck disable=SC2076
   if [[ "${CURRENT_OS}" =~ "${distro}" ]]; then
       SUPPORTED=1
   fi
@@ -106,13 +112,20 @@ if [[ -f /usr/sbin/hassio-supervisor ]]; then
     systemctl stop haos-agent > /dev/null 2>&1
     systemctl stop hassio-apparmor > /dev/null 2>&1
     systemctl stop hassio-supervisor > /dev/null 2>&1
-    dpkg -r homeassistant-supervised > /dev/null 2>&1
+    apt-get purge -y homeassistant-supervised\* > /dev/null 2>&1 || true
+    dpkg -r homeassistant-supervised > /dev/null 2>&1 || true
+    dpkg -r homeassistant-supervised-jethome > /dev/null 2>&1 || true
     dpkg -r os-agent > /dev/null 2>&1
-    docker ps | tail +2 | cut -d " " -f 1 | xargs -n 1 docker stop 
-    docker ps | tail +2 | cut -d " " -f 1 | xargs -n 1 docker stop  || true
+    docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop || true
+    sleep 1
+    if [ -n "$(docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_')" ]; then
+        print_info "Wait for stop containers"
+        docker ps --format json|jq -r .Names | grep -E 'addon_|hassio_' | xargs -n 1 docker stop  || true
+        sleep 5
+    fi
     sleep 5
-    docker system prune -a -f --volumes > /dev/null 2>&1
-    docker system prune -a -f --volumes > /dev/null 2>&1
+    docker system prune -a -f > /dev/null 2>&1
+    docker system prune -a -f > /dev/null 2>&1
     #touch /root/.ha_prepared
 
     print_info "Remove old Home Assistant done"
@@ -159,23 +172,6 @@ if [[ ! -f /root/.ha_prepared ]]; then
 
     print_info "Installing dependencies done"
 
-    #print_info "Force downgrade docker..."
-
-    #Workaround for bug in docker 5.25 version
-    #ii  docker-buildx-plugin               0.11.2-1~debian.12~bookworm                     arm64        Docker Buildx cli plugin.
-    #ii  docker-ce                          5:24.0.7-1~debian.12~bookworm                   arm64        Docker: the open-source application container engine
-    #ii  docker-ce-cli                      5:24.0.7-1~debian.12~bookworm                   arm64        Docker CLI: the open-source application container engine
-    #ii  docker-compose-plugin              2.21.0-1~debian.12~bookworm                     arm64        Docker Compose (V2) plugin for the Docker CLI.
-
-    #apt-get install -y --allow-downgrades \
-    #   docker-compose-plugin=2.21.0-1~debian.12~bookworm \
-    #   docker-ce-cli=5:24.0.7-1~debian.12~bookworm \
-    #   docker-buildx-plugin=0.11.2-1~debian.12~bookworm \
-    #   docker-ce=5:24.0.7-1~debian.12~bookworm \
-    #   docker-ce-rootless-extras=5:24.0.7-1~debian.12~bookworm
-
-    #print_info "Force downgrade docker done"
-
     #
     # Check 'extraargs=systemd.unified_cgroup_hierarchy=false' exists in /boot/armbianEnv.txt, add if not exists
     #
@@ -201,14 +197,19 @@ if [[ ! -f /root/.ha_prepared ]]; then
     touch /root/.ha_prepared
     if [[ "${REINSTALL}" == "0" ]]; then
         touch /var/run/reboot-required
-        print_info "Preparation done. Please reboot and run this script again"
-        print_info "curl https://raw.githubusercontent.com/jethub-homeassistant/supervised-installer/jethome-homeassistant-supervised/jethome-homeassitant-supervised.sh | sudo bash"
+        print_info "Preparation done. Please reboot and run this script again:"
+        if [ "${JETHOME}" == "yes" ]; then
+            print_info "curl https://raw.githubusercontent.com/jethub-homeassistant/supervised-installer/jethome-homeassistant-supervised/jethome-homeassitant-supervised.sh | sudo JETHOME=yes bash"
+        else
+            print_info "curl https://raw.githubusercontent.com/jethub-homeassistant/supervised-installer/jethome-homeassistant-supervised/jethome-homeassitant-supervised.sh | sudo bash"
+        fi
     else
         print_info "Reinstall pre-check done."
     fi
 fi
 
 if [[ -f /var/run/reboot-required ]]; then
+    rm -f /var/run/reboot-required
     print_error "Reboot required. Please reboot and run this script again"
     exit 1
 fi
@@ -216,8 +217,6 @@ fi
 #
 # Install HA packages
 #
-
-export MACHINE="${HOME_ASSISTANT_MACHINE}"
 
 #
 # - Installing os-agent
@@ -242,7 +241,7 @@ sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="Debian GNU\/Linux 12 (bookworm)"/' /etc/o
 #
 print_info "Installing Home Assistant Supervised (machine: ${MACHINE})..."
 
-MACHINE="qemuarm-64" apt-get install -y homeassistant-supervised
+apt-get install -y "homeassistant-supervised${pkg_suffix}"
 
 print_info "Home Assistant will be installed in tens of minutes"
 print_info "Please wait for supervisor up (timeout 1200 sec)..."
@@ -309,7 +308,7 @@ while true; do
     fi
 done
 
-print_info "Home Assistant up and running. Please reboot for avoid 'supervisor in unprivileged' error"
+print_info "Home Assistant up and running."
 print_request "Try access http://"
 read -r _{,} _ _ _ _ ip _ < <(ip r g 1.0.0.0) ; echo "$ip:8123"
 
